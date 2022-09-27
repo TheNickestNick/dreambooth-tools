@@ -33,6 +33,9 @@ def main():
 
     pipe = StableDiffusionPipeline.from_pretrained(
         args.model_path, torch_dtype=dtype).to("cuda")
+    pipe.safety_checker = (
+        lambda images, clip_input: (
+            images, torch.zeros(images.shape[0], dtype=torch.bool)))
 
     output_dir = Path(args.base_output_dir) / timestamp()
     output_dir.mkdir(parents=True, exist_ok=True)
