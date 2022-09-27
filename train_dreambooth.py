@@ -203,6 +203,9 @@ def parse_args():
     if args.instance_data_dir is None:
         raise ValueError("You must specify a train data directory.")
 
+    if not Path(args.instance_data_dir).exists():
+        raise ValueError("The specified train data directory does not exist.")
+
     if args.with_prior_preservation:
         if args.class_data_dir is None:
             raise ValueError("You must specify a data directory for class images.")
