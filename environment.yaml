@@ -1,0 +1,15 @@
+name: dreambooth
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - pytorch
+  - torchvision
+  - numpy
+  - cudatoolkit=11.6
+  - pip:
+    - diffusers[training]
+    - accelerate
+    - transformers
