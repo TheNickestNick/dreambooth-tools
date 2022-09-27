@@ -35,14 +35,16 @@ def main():
         args.model_path, torch_dtype=dtype).to("cuda")
 
     output_dir = Path(args.base_output_dir) / timestamp()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     with autocast("cuda"):
         image_counter = 0
-        for i in range(args.num_batches):
+        for _ in range(args.num_batches):
             images = pipe([args.prompt] * args.batch_size,
                           num_inference_steps=args.num_inference_steps,
                           guidance_scale=args.guidance_scale).images
             for img in images:
-                images.save(output_dir / f"{image_counter:04d}.png")
+                img.save(output_dir / f"{image_counter:04d}.png")
 
 if __name__ == '__main__':
     main()
