@@ -339,6 +339,9 @@ def main():
             pipeline = StableDiffusionPipeline.from_pretrained(
                 args.pretrained_model_name_or_path, use_auth_token=args.use_auth_token, torch_dtype=torch_dtype
             )
+            pipeline.safety_checker = (
+                lambda images, clip_input: (
+                    images, torch.zeros(images.shape[0], dtype=torch.bool)))
             pipeline.set_progress_bar_config(disable=True)
 
             num_new_images = args.num_class_images - cur_class_images
