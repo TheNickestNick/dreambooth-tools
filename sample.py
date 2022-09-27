@@ -45,6 +45,7 @@ def main():
                           guidance_scale=args.guidance_scale).images
             for img in images:
                 img.save(output_dir / f"{image_counter:04d}.png")
+                image_counter += 1
 
 if __name__ == '__main__':
     main()
