@@ -5,7 +5,7 @@ import random
 if __name__ == "__main__":
     model_id = "CompVis/stable-diffusion-v1-4"
     device = "cuda"
-    model = StableDiffusionPipeline.from_pretrained(model_id, use_auth_token=True, cache_dir="./.cache").to(device)
+    model = StableDiffusionPipeline.from_pretrained(model_id, use_auth_token=True).to(device)
     tokenizer = model.tokenizer
 
     rare_tokens = []
