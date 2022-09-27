@@ -68,6 +68,12 @@ def parse_args():
         default=None,
         help="The prompt to specify images in the same class as provided intance images.",
     )
+    parser.add_argument("--class_gen_num_inference_steps",
+        type=int,
+        default=50)
+    parser.add_argument("--class_gen_guidance_scale",
+        type=float,
+        default=10)
     parser.add_argument(
         "--with_prior_preservation",
         default=False,
@@ -358,7 +364,10 @@ def main():
                 sample_dataloader, desc="Generating class images", disable=not accelerator.is_local_main_process
             ):
                 with context:
-                    images = pipeline(example["prompt"]).images
+                    with torch.no_grad():
+                        images = pipeline(example["prompt"],
+                                        num_inference_steps=args.class_gen_num_inference_steps,
+                                        guidance_scale=args.class_gen_guidance_scale).images
 
                 for i, image in enumerate(images):
                     image.save(class_images_dir / f"{example['index'][i] + cur_class_images}.jpg")
