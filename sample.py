@@ -19,6 +19,7 @@ def parse_args():
         choices=["no", "fp16", "bf16"],)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--num_batches", type=int, default=1)
+    parser.add_argument("--prompts_file", type=str, default=None)
     args = parser.parse_args()
     return args
 

@@ -30,6 +30,12 @@ logger = get_logger(__name__)
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
+        "--project",
+        type=str,
+        required=True,
+        help="The name of the directory to use for the project."
+    )
+    parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
         default=None,
@@ -42,20 +48,20 @@ def parse_args():
         default=None,
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
-    parser.add_argument(
-        "--instance_data_dir",
-        type=str,
-        default=None,
-        required=True,
-        help="A folder containing the training data of instance images.",
-    )
-    parser.add_argument(
-        "--class_data_dir",
-        type=str,
-        default=None,
-        required=False,
-        help="A folder containing the training data of class images.",
-    )
+    # parser.add_argument(
+    #     "--instance_data_dir",
+    #     type=str,
+    #     default=None,
+    #     required=True,
+    #     help="A folder containing the training data of instance images.",
+    # )
+    # parser.add_argument(
+    #     "--class_data_dir",
+    #     type=str,
+    #     default=None,
+    #     required=False,
+    #     help="A folder containing the training data of class images.",
+    # )
     parser.add_argument(
         "--instance_prompt",
         type=str,
@@ -68,12 +74,6 @@ def parse_args():
         default=None,
         help="The prompt to specify images in the same class as provided intance images.",
     )
-    parser.add_argument("--class_gen_num_inference_steps",
-        type=int,
-        default=50)
-    parser.add_argument("--class_gen_guidance_scale",
-        type=float,
-        default=10)
     parser.add_argument(
         "--with_prior_preservation",
         default=False,
@@ -89,12 +89,12 @@ def parse_args():
             " sampled with class_prompt."
         ),
     )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="text-inversion-model",
-        help="The output directory where the model predictions and checkpoints will be written.",
-    )
+    # parser.add_argument(
+    #     "--output_dir",
+    #     type=str,
+    #     default="text-inversion-model",
+    #     help="The output directory where the model predictions and checkpoints will be written.",
+    # )
     parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
     parser.add_argument(
         "--resolution",
@@ -163,7 +163,6 @@ def parse_args():
     parser.add_argument("--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam optimizer.")
     parser.add_argument("--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use.")
     parser.add_argument("--adam_epsilon", type=float, default=1e-08, help="Epsilon value for the Adam optimizer")
-    parser.add_argument("--push_to_hub", action="store_true", help="Whether or not to push the model to the Hub.")
     parser.add_argument(
         "--use_auth_token",
         action="store_true",
@@ -171,13 +170,6 @@ def parse_args():
             "Will use the token generated when running `huggingface-cli login` (necessary to use this script with"
             " private models)."
         ),
-    )
-    parser.add_argument("--hub_token", type=str, default=None, help="The token to use to push to the Model Hub.")
-    parser.add_argument(
-        "--hub_model_id",
-        type=str,
-        default=None,
-        help="The name of the repository to keep in sync with the local `output_dir`.",
     )
     parser.add_argument(
         "--logging_dir",
@@ -364,10 +356,7 @@ def main():
                 sample_dataloader, desc="Generating class images", disable=not accelerator.is_local_main_process
             ):
                 with context:
-                    with torch.no_grad():
-                        images = pipeline(example["prompt"],
-                                        num_inference_steps=args.class_gen_num_inference_steps,
-                                        guidance_scale=args.class_gen_guidance_scale).images
+                    images = pipeline(example["prompt"]).images
 
                 for i, image in enumerate(images):
                     image.save(class_images_dir / f"{example['index'][i] + cur_class_images}.jpg")
@@ -378,19 +367,7 @@ def main():
 
     # Handle the repository creation
     if accelerator.is_main_process:
-        if args.push_to_hub:
-            if args.hub_model_id is None:
-                repo_name = get_full_repo_name(Path(args.output_dir).name, token=args.hub_token)
-            else:
-                repo_name = args.hub_model_id
-            repo = Repository(args.output_dir, clone_from=repo_name)
-
-            with open(os.path.join(args.output_dir, ".gitignore"), "w+") as gitignore:
-                if "step_*" not in gitignore:
-                    gitignore.write("step_*\n")
-                if "epoch_*" not in gitignore:
-                    gitignore.write("epoch_*\n")
-        elif args.output_dir is not None:
+        if args.output_dir is not None:
             os.makedirs(args.output_dir, exist_ok=True)
 
     # Load the tokenizer
@@ -533,10 +510,9 @@ def main():
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(unet):
                 # Convert images to latent space
-                # NA: Also update the encoder
-                #with torch.no_grad():
-                latents = vae.encode(batch["pixel_values"]).latent_dist.sample()
-                latents = latents * 0.18215
+                with torch.no_grad():
+                    latents = vae.encode(batch["pixel_values"]).latent_dist.sample()
+                    latents = latents * 0.18215
 
                 # Sample noise that we'll add to the latents
                 noise = torch.randn(latents.shape).to(latents.device)
@@ -555,7 +531,7 @@ def main():
                     encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
                 # Predict the noise residual
-                noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample#['sample']
+                noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
                 loss = F.mse_loss(noise_pred, noise, reduction="none").mean([1, 2, 3]).mean()
                 accelerator.backward(loss)
@@ -592,11 +568,6 @@ def main():
             feature_extractor=CLIPFeatureExtractor.from_pretrained("openai/clip-vit-base-patch32"),
         )
         pipeline.save_pretrained(args.output_dir)
-
-        if args.push_to_hub:
-            repo.push_to_hub(
-                args, pipeline, repo, commit_message="End of training", blocking=False, auto_lfs_prune=True
-            )
 
     accelerator.end_training()
 

@@ -9,7 +9,10 @@ dependencies:
   - torchvision
   - numpy
   - cudatoolkit=11.6
+  - pytorch-lightning
   - pip:
     - diffusers[training]
     - accelerate
     - transformers
+    - pyyaml
+    - omegaconf
